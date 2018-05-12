@@ -12,7 +12,9 @@ use Neos\Flow\Reflection\ReflectionService;
 use Neos\Utility\ObjectAccess;
 use Wazisera\Utility\JsonViewConfiguration\Annotations\Descend;
 use Wazisera\Utility\JsonViewConfiguration\Annotations\Exclude;
+use Wazisera\Utility\JsonViewConfiguration\Annotations\ExposeClassName;
 use Wazisera\Utility\JsonViewConfiguration\Annotations\ExposeObjectIdentifier;
+use Wazisera\Utility\JsonViewConfiguration\Annotations\Only;
 
 class JsonViewConfigurationService {
 
@@ -34,7 +36,7 @@ class JsonViewConfigurationService {
             if($this->isArraySequential($value) == true) {
                 $numberOfItems = count($value);
                 if($numberOfItems > 0 && is_object($value[0])) {
-                    $subConfiguration = array_merge($propertyConfiguration, $this->buildConfiguration($value[0]));
+                    $subConfiguration = array_merge($this->buildConfiguration($value[0], $propertyConfiguration));
 
                     for ($i = 0; $i < $numberOfItems; $i++) {
                         $configuration[$i] = $subConfiguration;
@@ -62,15 +64,11 @@ class JsonViewConfigurationService {
         $configuration = array();
         $className = get_class($object);
 
-        if($this->reflectionService->isClassAnnotatedWith($className, ExposeObjectIdentifier::class)) {
-            $configuration['_exposeObjectIdentifier'] = true;
-        }
 
-        /** @var Exclude $excludeAnnotation */
-        $excludeAnnotation = $this->reflectionService->getClassAnnotation($className, Exclude::class);
-        if($excludeAnnotation !== null) {
-            $configuration['_exclude'] = $excludeAnnotation->properties;
-        }
+        $this->configureExposeObjectIdentifier($configuration, $className);
+        $this->configureExposeClassName($configuration, $className);
+        $this->configureOnlyProperties($configuration, $className);
+        $this->configureExcludeProperties($configuration, $className);
 
         $propertyNames = ObjectAccess::getGettablePropertyNames($object);
         foreach($propertyNames as $propertyName) {
@@ -84,7 +82,12 @@ class JsonViewConfigurationService {
             if($buildSubConfiguration === true) {
                 $propertyValue = ObjectAccess::getProperty($object, $propertyName);
 
-                $propertyConfiguration['_exclude'] = $this->getExcludeProperties($className, $propertyName);
+                $propertyConfiguration = array();
+
+                $this->configureExposeObjectIdentifier($propertyConfiguration, $className, $propertyName);
+                $this->configureExposeClassName($propertyConfiguration, $className, $propertyName);
+                $this->configureOnlyProperties($propertyConfiguration, $className, $propertyName);
+                $this->configureExcludeProperties($propertyConfiguration, $className, $propertyName);
 
                 if (is_object($propertyValue) && $propertyValue !== $object && $propertyValue instanceof \DateTimeInterface == false) {
                     $subConfiguration = $this->buildConfiguration($propertyValue, $propertyConfiguration);
@@ -103,17 +106,72 @@ class JsonViewConfigurationService {
     }
 
     /**
+     * @param array $configuration
+     * @param string $className
+     * @param string $propertyName
+     */
+    protected function configureExcludeProperties(array &$configuration, $className, $propertyName = null) {
+        if($propertyName === null) {
+            $excludeAnnotation = $this->reflectionService->getClassAnnotation($className, Exclude::class);
+        } else {
+            $excludeAnnotation = $this->reflectionService->getPropertyAnnotation($className, $propertyName, Exclude::class);
+        }
+        if($excludeAnnotation != null && is_array($excludeAnnotation->properties)) {
+            $configuration['_exclude'] = $excludeAnnotation->properties;
+        }
+    }
+
+    /**
+     * @param array $configuration
+     * @param string $className
+     * @param string $propertyName
+     */
+    protected function configureOnlyProperties(array &$configuration, $className, $propertyName = null) {
+        if($propertyName === null) {
+            $onlyAnnotation = $this->reflectionService->getClassAnnotation($className, Only::class);
+        } else {
+            $onlyAnnotation = $this->reflectionService->getPropertyAnnotation($className, $propertyName, Only::class);
+        }
+        if($onlyAnnotation != null && is_array($onlyAnnotation->properties)) {
+            $configuration['_only'] = $onlyAnnotation->properties;
+        }
+    }
+
+    /**
+     * @param array $configuration
      * @param string $className
      * @param string $propertyName
      * @return array
      */
-    protected function getExcludeProperties($className, $propertyName) {
-        /** @var Exclude $excludeAnnotation */
-        $excludeAnnotation = $this->reflectionService->getPropertyAnnotation($className, $propertyName, Exclude::class);
-        if($excludeAnnotation != null && is_array($excludeAnnotation->properties)) {
-            return $excludeAnnotation->properties;
+    protected function configureExposeObjectIdentifier(array &$configuration, $className, $propertyName = null) {
+        if($propertyName === null) {
+            $exposeIdentifierAnnotation = $this->reflectionService->getClassAnnotation($className, ExposeObjectIdentifier::class);
+        } else {
+            $exposeIdentifierAnnotation = $this->reflectionService->getPropertyAnnotation($className, $propertyName, ExposeObjectIdentifier::class);
         }
-        return array();
+        if($exposeIdentifierAnnotation != null) {
+            $configuration['_exposeObjectIdentifier'] = true;
+            if(strlen($exposeIdentifierAnnotation->identifierKey) > 0) {
+                $configuration['_exposedObjectIdentifierKey'] = $exposeIdentifierAnnotation->identifierKey;
+            }
+        }
+    }
+
+    /**
+     * @param array $configuration
+     * @param string $className
+     * @param string $propertyName
+     * @return array
+     */
+    protected function configureExposeClassName(array &$configuration, $className, $propertyName = null) {
+        if($propertyName === null) {
+            $exposeClassNameAnnotation = $this->reflectionService->getClassAnnotation($className, ExposeClassName::class);
+        } else {
+            $exposeClassNameAnnotation = $this->reflectionService->getPropertyAnnotation($className, $propertyName, ExposeClassName::class);
+        }
+        if($exposeClassNameAnnotation != null) {
+            $configuration['_exposeClassName'] = ($exposeClassNameAnnotation->qualifiedName === true) ? 1 : 2;
+        }
     }
 
     /**

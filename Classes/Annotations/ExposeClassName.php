@@ -12,19 +12,19 @@ use Doctrine\Common\Annotations\Annotation as DoctrineAnnotation;
  * @Annotation
  * @DoctrineAnnotation\Target({"CLASS", "PROPERTY"})
  */
-final class ExposeObjectIdentifier {
+final class ExposeClassName {
 
     /**
-     * @var string
+     * @var boolean
      */
-    public $identifierKey;
+    public $qualifiedName = true;
 
     /**
      * @param array $values
      */
     public function __construct(array $values)  {
-        if (isset($values['value']) || isset($values['identifierKey'])) {
-            $this->identifierKey = isset($values['identifierKey']) ? (string)$values['identifierKey'] : (string)$values['value'];
+        if (isset($values['value']) || isset($values['qualifiedName'])) {
+            $this->qualifiedName = isset($values['qualifiedName']) ? (boolean)$values['qualifiedName'] : (boolean)$values['value'];
         }
     }
 
