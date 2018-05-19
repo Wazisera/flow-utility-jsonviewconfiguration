@@ -31,6 +31,14 @@ class Example {
 
 In the controller or an extended JsonView you can use it like:
 ```php
+/**
+ * @var JsonViewConfigurationService
+ * @Flow\Inject
+ */
+protected $jsonViewConfiguration;
+
+// ...
+
 $value = new Example();
 $config = $this->jsonViewConfiguration->buildConfiguration($value);
 $this->view->setConfiguration($config);
