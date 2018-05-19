@@ -41,7 +41,7 @@ protected $jsonViewConfiguration;
 
 $value = new Example();
 $config = $this->jsonViewConfiguration->buildConfiguration($value);
-$this->view->setConfiguration($config);
+$this->view->setConfiguration(array('value' => $config));
 $this->view->assign('value', $value);
 ```
 ```json
@@ -53,7 +53,7 @@ or with variant:
 ```php
 $value = new Example();
 $config = $this->jsonViewConfiguration->buildConfiguration($value, 'withAddress');
-$this->view->setConfiguration($config);
+$this->view->setConfiguration(array('value' => $config));
 $this->view->assign('value', $value);
 ```
 ```json
