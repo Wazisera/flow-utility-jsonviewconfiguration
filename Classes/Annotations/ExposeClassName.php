@@ -12,7 +12,7 @@ use Doctrine\Common\Annotations\Annotation as DoctrineAnnotation;
  * @Annotation
  * @DoctrineAnnotation\Target({"CLASS", "PROPERTY"})
  */
-final class ExposeClassName {
+final class ExposeClassName extends AbstractAnnotation {
 
     /**
      * @var boolean

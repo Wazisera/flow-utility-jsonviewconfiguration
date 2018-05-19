@@ -10,6 +10,7 @@ use Doctrine\Common\Collections\Collection;
 use Neos\Flow\Annotations as Flow;
 use Neos\Flow\Reflection\ReflectionService;
 use Neos\Utility\ObjectAccess;
+use Wazisera\Utility\JsonViewConfiguration\Annotations\AbstractAnnotation;
 use Wazisera\Utility\JsonViewConfiguration\Annotations\Descend;
 use Wazisera\Utility\JsonViewConfiguration\Annotations\Exclude;
 use Wazisera\Utility\JsonViewConfiguration\Annotations\ExposeClassName;
@@ -26,17 +27,27 @@ class JsonViewConfigurationService {
 
     /**
      * @param object|array $value
-     * @param array $propertyConfiguration
+     * @param string $variant
      * @return array
      */
-    public function buildConfiguration($value, $propertyConfiguration = array()) {
+    public function buildConfiguration($value, $variant = '') {
+        return $this->buildConfigurationValue($value, array(), $variant);
+    }
+
+    /**
+     * @param object|array $value
+     * @param array $propertyConfiguration
+     * @param string $variant
+     * @return array
+     */
+    protected function buildConfigurationValue($value, $propertyConfiguration = array(), $variant) {
         $configuration = array();
 
         if((is_array($value) || $value instanceof \ArrayAccess)) {
             if($this->isArraySequential($value) == true) {
                 $numberOfItems = count($value);
                 if($numberOfItems > 0 && is_object($value[0])) {
-                    $subConfiguration = array_merge($this->buildConfiguration($value[0], $propertyConfiguration));
+                    $subConfiguration = array_merge($this->buildConfigurationValue($value[0], $propertyConfiguration, $variant));
 
                     for ($i = 0; $i < $numberOfItems; $i++) {
                         $configuration[$i] = $subConfiguration;
@@ -45,12 +56,12 @@ class JsonViewConfigurationService {
             } else {
                 foreach($value as $elementKey => $elementValue) {
                     if(is_string($elementKey) ) {
-                        $configuration[$elementKey] = $this->buildConfiguration($elementValue);
+                        $configuration[$elementKey] = $this->buildConfigurationValue($elementValue, array(), $variant);
                     }
                 }
             }
         } else if(is_object($value)) {
-            $configuration = $this->buildConfigurationForObject($value);
+            $configuration = $this->buildConfigurationForObject($value, $variant);
         }
 
         return $configuration;
@@ -58,23 +69,25 @@ class JsonViewConfigurationService {
 
     /**
      * @param object $object
+     * @param string $variant
      * @return array
      */
-    protected function buildConfigurationForObject($object) {
+    protected function buildConfigurationForObject($object, $variant) {
         $configuration = array();
         $className = get_class($object);
 
-
-        $this->configureExposeObjectIdentifier($configuration, $className);
-        $this->configureExposeClassName($configuration, $className);
-        $this->configureOnlyProperties($configuration, $className);
-        $this->configureExcludeProperties($configuration, $className);
+        $this->configureExposeObjectIdentifier($configuration, $className, null, $variant);
+        $this->configureExposeClassName($configuration, $className, null, $variant);
+        $this->configureOnlyProperties($configuration, $className, null, $variant);
+        $this->configureExcludeProperties($configuration, $className, null, $variant);
 
         $propertyNames = ObjectAccess::getGettablePropertyNames($object);
         foreach($propertyNames as $propertyName) {
             $buildSubConfiguration = false;
 
-            if($this->reflectionService->isPropertyAnnotatedWith($className, $propertyName, Descend::class)) {
+            /** @var Descend $descendAnnotation */
+            $descendAnnotation = $this->reflectionService->getPropertyAnnotation($className, $propertyName, Descend::class);
+            if($descendAnnotation != null && $this->shouldConfigureAnnotationForVariant($descendAnnotation, $variant)) {
                 $configuration['_descend'][$propertyName] = array();
                 $buildSubConfiguration = true;
             }
@@ -90,7 +103,7 @@ class JsonViewConfigurationService {
                 $this->configureExcludeProperties($propertyConfiguration, $className, $propertyName);
 
                 if (is_object($propertyValue) && $propertyValue !== $object && $propertyValue instanceof \DateTimeInterface == false) {
-                    $subConfiguration = $this->buildConfiguration($propertyValue, $propertyConfiguration);
+                    $subConfiguration = $this->buildConfigurationValue($propertyValue, $propertyConfiguration, $variant);
 
                     if ($subConfiguration !== array()) {
                         if (isset($configuration['_descend'][$propertyName])) {
@@ -109,14 +122,15 @@ class JsonViewConfigurationService {
      * @param array $configuration
      * @param string $className
      * @param string $propertyName
+     * @param string $variant
      */
-    protected function configureExcludeProperties(array &$configuration, $className, $propertyName = null) {
+    protected function configureExcludeProperties(array &$configuration, $className, $propertyName = null, $variant = '') {
         if($propertyName === null) {
             $excludeAnnotation = $this->reflectionService->getClassAnnotation($className, Exclude::class);
         } else {
             $excludeAnnotation = $this->reflectionService->getPropertyAnnotation($className, $propertyName, Exclude::class);
         }
-        if($excludeAnnotation != null && is_array($excludeAnnotation->properties)) {
+        if($excludeAnnotation != null && $this->shouldConfigureAnnotationForVariant($excludeAnnotation, $variant) && is_array($excludeAnnotation->properties)) {
             $configuration['_exclude'] = $excludeAnnotation->properties;
         }
     }
@@ -125,14 +139,15 @@ class JsonViewConfigurationService {
      * @param array $configuration
      * @param string $className
      * @param string $propertyName
+     * @param string $variant
      */
-    protected function configureOnlyProperties(array &$configuration, $className, $propertyName = null) {
+    protected function configureOnlyProperties(array &$configuration, $className, $propertyName = null, $variant = '') {
         if($propertyName === null) {
             $onlyAnnotation = $this->reflectionService->getClassAnnotation($className, Only::class);
         } else {
             $onlyAnnotation = $this->reflectionService->getPropertyAnnotation($className, $propertyName, Only::class);
         }
-        if($onlyAnnotation != null && is_array($onlyAnnotation->properties)) {
+        if($onlyAnnotation != null && $this->shouldConfigureAnnotationForVariant($onlyAnnotation, $variant) && is_array($onlyAnnotation->properties)) {
             $configuration['_only'] = $onlyAnnotation->properties;
         }
     }
@@ -141,15 +156,15 @@ class JsonViewConfigurationService {
      * @param array $configuration
      * @param string $className
      * @param string $propertyName
-     * @return array
+     * @param string $variant
      */
-    protected function configureExposeObjectIdentifier(array &$configuration, $className, $propertyName = null) {
+    protected function configureExposeObjectIdentifier(array &$configuration, $className, $propertyName = null, $variant = '') {
         if($propertyName === null) {
             $exposeIdentifierAnnotation = $this->reflectionService->getClassAnnotation($className, ExposeObjectIdentifier::class);
         } else {
             $exposeIdentifierAnnotation = $this->reflectionService->getPropertyAnnotation($className, $propertyName, ExposeObjectIdentifier::class);
         }
-        if($exposeIdentifierAnnotation != null) {
+        if($exposeIdentifierAnnotation != null && $this->shouldConfigureAnnotationForVariant($exposeIdentifierAnnotation, $variant)) {
             $configuration['_exposeObjectIdentifier'] = true;
             if(strlen($exposeIdentifierAnnotation->identifierKey) > 0) {
                 $configuration['_exposedObjectIdentifierKey'] = $exposeIdentifierAnnotation->identifierKey;
@@ -161,17 +176,35 @@ class JsonViewConfigurationService {
      * @param array $configuration
      * @param string $className
      * @param string $propertyName
-     * @return array
+     * @param string $variant
      */
-    protected function configureExposeClassName(array &$configuration, $className, $propertyName = null) {
+    protected function configureExposeClassName(array &$configuration, $className, $propertyName = null, $variant = '') {
         if($propertyName === null) {
             $exposeClassNameAnnotation = $this->reflectionService->getClassAnnotation($className, ExposeClassName::class);
         } else {
             $exposeClassNameAnnotation = $this->reflectionService->getPropertyAnnotation($className, $propertyName, ExposeClassName::class);
         }
-        if($exposeClassNameAnnotation != null) {
+        if($exposeClassNameAnnotation != null && $this->shouldConfigureAnnotationForVariant($exposeClassNameAnnotation, $variant)) {
             $configuration['_exposeClassName'] = ($exposeClassNameAnnotation->qualifiedName === true) ? 1 : 2;
         }
+    }
+
+    /**
+     * @param object $annotation
+     * @param string $variant
+     * @return bool
+     */
+    protected function shouldConfigureAnnotationForVariant($annotation, $variant = '') {
+        if($annotation != null && $annotation instanceof AbstractAnnotation) {
+            if(in_array($variant, $annotation->ignoreForVariant)) {
+                return false;
+            }
+            if(count($annotation->onlyForVariant) > 0 && in_array($variant, $annotation->onlyForVariant) === false) {
+                return false;
+            }
+            return true;
+        }
+        return false;
     }
 
     /**

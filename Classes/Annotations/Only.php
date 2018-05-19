@@ -12,7 +12,7 @@ use Doctrine\Common\Annotations\Annotation as DoctrineAnnotation;
  * @Annotation
  * @DoctrineAnnotation\Target({"CLASS", "PROPERTY"})
  */
-final class Only {
+final class Only extends AbstractAnnotation {
 
     /**
      * @var array

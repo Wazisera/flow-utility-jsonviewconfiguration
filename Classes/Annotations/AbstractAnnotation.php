@@ -6,10 +6,17 @@ namespace Wazisera\Utility\JsonViewConfiguration\Annotations;
  *                                                                                       *
  *                                                                                       */
 
-/**
- * @Annotation
- */
-final class Descend extends AbstractAnnotation {
+abstract class AbstractAnnotation {
+
+    /**
+     * @var array
+     */
+    public $ignoreForVariant = array();
+
+    /**
+     * @var array
+     */
+    public $onlyForVariant = array();
 
 }
 
