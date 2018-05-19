@@ -45,7 +45,7 @@ $this->view->setConfiguration($config);
 $this->view->assign('value', $value);
 ```
 ```json
-{ "name": "John" }
+{ "customObjectId": "71abe-...182ab",  "name": "John" }
 ```
 
 or with variant:
@@ -57,7 +57,7 @@ $this->view->setConfiguration($config);
 $this->view->assign('value', $value);
 ```
 ```json
-{ "name": "John", "adress": { "street": "...", "city": "..." } }
+{ "customObjectId": "71abe-...182ab",  "name": "John", "adress": { "street": "...", "city": "..." } }
 ```
 
 
