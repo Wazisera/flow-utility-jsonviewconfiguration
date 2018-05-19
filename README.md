@@ -28,7 +28,8 @@ class Example {
 
 In the controller or an extended JsonView you can use it like:
 ```php
-$this->jsonViewConfiguration->buildConfiguration($value);
+$config = $this->jsonViewConfiguration->buildConfiguration($value);
+$this->view->setConfiguration($config);
 ```
 ```json
 { "name": "John" }
@@ -37,7 +38,8 @@ $this->jsonViewConfiguration->buildConfiguration($value);
 or with variant:
 
 ```php
-$this->jsonViewConfiguration->buildConfiguration($value, 'withAddress');
+$config = $this->jsonViewConfiguration->buildConfiguration($value, 'withAddress');
+$this->view->setConfiguration($config);
 ```
 ```json
 { "name": "John", "adress": { "street": "...", "city": "..." } }
