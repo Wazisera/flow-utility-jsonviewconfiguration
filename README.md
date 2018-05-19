@@ -2,6 +2,9 @@
 
 This Flow package allows you to create a JsonView configuration with annotations.
 
+Generates a configuration like described on this page:
+http://flowframework.readthedocs.io/en/stable/TheDefinitiveGuide/PartIII/ModelViewController.html?highlight=descend#json-view
+
 ## Example
 
 ```php
@@ -28,8 +31,10 @@ class Example {
 
 In the controller or an extended JsonView you can use it like:
 ```php
+$value = new Example();
 $config = $this->jsonViewConfiguration->buildConfiguration($value);
 $this->view->setConfiguration($config);
+$this->view->assign('value', $value);
 ```
 ```json
 { "name": "John" }
@@ -38,8 +43,10 @@ $this->view->setConfiguration($config);
 or with variant:
 
 ```php
+$value = new Example();
 $config = $this->jsonViewConfiguration->buildConfiguration($value, 'withAddress');
 $this->view->setConfiguration($config);
+$this->view->assign('value', $value);
 ```
 ```json
 { "name": "John", "adress": { "street": "...", "city": "..." } }
