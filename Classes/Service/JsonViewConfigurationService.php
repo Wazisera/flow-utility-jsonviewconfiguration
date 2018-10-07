@@ -104,7 +104,6 @@ class JsonViewConfigurationService {
 
                 if (is_object($propertyValue) && $propertyValue !== $object && $propertyValue instanceof \DateTimeInterface == false) {
                     $subConfiguration = $this->buildConfigurationValue($propertyValue, $propertyConfiguration, $variant);
-
                     if ($subConfiguration !== array()) {
                         if (isset($configuration['_descend'][$propertyName])) {
                             $configuration['_descend'][$propertyName] = $subConfiguration;
